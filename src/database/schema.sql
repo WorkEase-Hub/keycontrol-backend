@@ -1,59 +1,79 @@
--- KeyControl Manager Database Schema
--- Autor: Adimael Santos da Silva - github.com/adimael
--- Versão: 2.2.1
+-- KeyControl MySQL Database Schema
+-- This schema replicates the Supabase database structure for MySQL
 
--- Configurações do banco
-SET FOREIGN_KEY_CHECKS = 0;
+-- Create database if it doesn't exist
+CREATE DATABASE IF NOT EXISTS keycontrol_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE keycontrol_db;
+
+-- Drop existing tables if they exist (for fresh installation)
 DROP TABLE IF EXISTS historico_chaves;
+DROP TABLE IF EXISTS perfis;
 DROP TABLE IF EXISTS pessoas;
 DROP TABLE IF EXISTS salas;
 DROP TABLE IF EXISTS usuarios;
-SET FOREIGN_KEY_CHECKS = 1;
 
--- Tabela de usuários do sistema
+-- Create usuarios (users) table
 CREATE TABLE usuarios (
     id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
     username VARCHAR(255) NOT NULL UNIQUE,
     senha VARCHAR(255) NOT NULL,
-    nivel_acesso ENUM('funcionario', 'administrador') DEFAULT 'funcionario',
+    nivel_acesso ENUM('funcionario', 'administrador') NOT NULL DEFAULT 'funcionario',
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
     INDEX idx_username (username),
     INDEX idx_nivel_acesso (nivel_acesso)
-);
+) ENGINE=InnoDB;
 
--- Tabela de salas
+-- Create pessoas (people) table
+CREATE TABLE pessoas (
+    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    nome_completo VARCHAR(255) NOT NULL,
+    observacao TEXT,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_nome_completo (nome_completo)
+) ENGINE=InnoDB;
+
+-- Create perfis (profiles) table
+CREATE TABLE perfis (
+    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    usuario_id VARCHAR(36) NOT NULL,
+    nome VARCHAR(255) NOT NULL,
+    sobrenome VARCHAR(255),
+    email VARCHAR(255) UNIQUE,
+    telefone VARCHAR(20),
+    departamento VARCHAR(255),
+    cargo VARCHAR(255),
+    data_admissao DATE,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    INDEX idx_usuario_id (usuario_id),
+    INDEX idx_email (email)
+) ENGINE=InnoDB;
+
+-- Create salas (rooms) table
 CREATE TABLE salas (
     id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
     numero VARCHAR(50) NOT NULL UNIQUE,
     nome VARCHAR(255) NOT NULL,
-    disponivel ENUM('Disponível', 'Indisponível', 'Em uso') DEFAULT 'Disponível',
-    chave_reserva_disponivel ENUM('Disponível', 'Indisponível', 'Em uso') DEFAULT 'Disponível',
-    status ENUM('active', 'inactive', 'maintenance') DEFAULT 'active',
+    disponivel ENUM('Disponível', 'Indisponível', 'Em uso') NOT NULL DEFAULT 'Disponível',
+    chave_reserva_disponivel ENUM('Disponível', 'Indisponível', 'Em uso') NOT NULL DEFAULT 'Disponível',
+    status ENUM('active', 'inactive', 'maintenance') NOT NULL DEFAULT 'active',
     observacoes TEXT,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
     INDEX idx_numero (numero),
-    INDEX idx_disponivel (disponivel),
-    INDEX idx_status (status)
-);
+    INDEX idx_status (status),
+    INDEX idx_disponivel (disponivel)
+) ENGINE=InnoDB;
 
--- Tabela de pessoas (cadastro auxiliar)
-CREATE TABLE pessoas (
-    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
-    nome VARCHAR(255) NOT NULL,
-    departamento VARCHAR(255),
-    cargo VARCHAR(255),
-    email VARCHAR(255),
-    telefone VARCHAR(20),
-    ativo BOOLEAN DEFAULT TRUE,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_nome (nome),
-    INDEX idx_departamento (departamento)
-);
-
--- Tabela de histórico de chaves
+-- Create historico_chaves (key history) table
 CREATE TABLE historico_chaves (
     id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
     sala_id VARCHAR(36) NOT NULL,
@@ -66,29 +86,103 @@ CREATE TABLE historico_chaves (
     observacoes TEXT,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
     FOREIGN KEY (sala_id) REFERENCES salas(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
     INDEX idx_sala_id (sala_id),
     INDEX idx_usuario_id (usuario_id),
+    INDEX idx_devolvido (devolvido),
     INDEX idx_data_retirada (data_retirada),
-    INDEX idx_devolvido (devolvido)
-);
+    INDEX idx_data_devolucao (data_devolucao)
+) ENGINE=InnoDB;
 
--- Inserir usuário administrador padrão
-INSERT INTO usuarios (id, username, senha, nivel_acesso) VALUES 
-('admin-default-001', 'admin', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeK3WtQV3FdODJWje', 'administrador');
--- Senha padrão: 'admin123' (ALTERAR EM PRODUÇÃO!)
+-- Insert default admin user (password: admin)
+-- Password hash generated with bcrypt rounds=12
+INSERT INTO usuarios (id, username, senha, nivel_acesso) 
+VALUES (
+    UUID(),
+    'admin', 
+    '$2a$12$HrJtpMdmwkK3dUCwYc6XO.XTYzjBR3vGdKcP8CI.6nW1.k51iXu0m', 
+    'administrador'
+) ON DUPLICATE KEY UPDATE 
+    senha = VALUES(senha),
+    nivel_acesso = VALUES(nivel_acesso),
+    atualizado_em = CURRENT_TIMESTAMP;
 
--- Inserir salas de exemplo
-INSERT INTO salas (id, numero, nome, observacoes) VALUES 
-('sala-001', '101', 'Sala de Reuniões A', 'Sala principal para reuniões'),
-('sala-002', '102', 'Laboratório de Informática', 'Sala com computadores'),
-('sala-003', '103', 'Auditório', 'Sala para eventos grandes'),
-('sala-004', '201', 'Sala de Treinamento', 'Sala para cursos'),
-('sala-005', '202', 'Biblioteca', 'Espaço de estudos');
+-- Create admin profile
+INSERT INTO perfis (id, usuario_id, nome, sobrenome, email, departamento, cargo)
+SELECT 
+    UUID(),
+    u.id, 
+    'Admin', 
+    'System', 
+    'admin@keycontrol.com', 
+    'TI', 
+    'Administrador de Sistema'
+FROM usuarios u 
+WHERE u.username = 'admin'
+ON DUPLICATE KEY UPDATE 
+    nome = VALUES(nome),
+    sobrenome = VALUES(sobrenome),
+    email = VALUES(email),
+    departamento = VALUES(departamento),
+    cargo = VALUES(cargo),
+    atualizado_em = CURRENT_TIMESTAMP;
 
--- Inserir pessoas de exemplo
-INSERT INTO pessoas (id, nome, departamento, cargo, email) VALUES 
-('pessoa-001', 'João Silva', 'TI', 'Analista', 'joao.silva@empresa.com'),
-('pessoa-002', 'Maria Santos', 'RH', 'Gerente', 'maria.santos@empresa.com'),
-('pessoa-003', 'Pedro Oliveira', 'Vendas', 'Vendedor', 'pedro.oliveira@empresa.com'),
-('pessoa-004', 'Ana Costa', 'Marketing', 'Coordenadora', 'ana.costa@empresa.com');
+-- Insert sample rooms
+INSERT INTO salas (id, numero, nome, status, observacoes) VALUES
+(UUID(), '101', 'Sala de Reuniões 1', 'active', 'Primeiro andar, ala leste'),
+(UUID(), '102', 'Sala de Reuniões 2', 'active', 'Primeiro andar, ala oeste'),
+(UUID(), '201', 'Laboratório de Informática', 'active', 'Segundo andar'),
+(UUID(), '301', 'Auditório', 'active', 'Terceiro andar, capacidade 100 pessoas'),
+(UUID(), '401', 'Sala de Treinamento', 'active', 'Quarto andar')
+ON DUPLICATE KEY UPDATE 
+    nome = VALUES(nome),
+    status = VALUES(status),
+    observacoes = VALUES(observacoes),
+    atualizado_em = CURRENT_TIMESTAMP;
+
+-- Create views for easier querying
+CREATE OR REPLACE VIEW vw_usuarios_completos AS
+SELECT 
+    u.id,
+    u.username,
+    u.nivel_acesso,
+    u.criado_em as usuario_criado_em,
+    u.atualizado_em as usuario_atualizado_em,
+    p.id as perfil_id,
+    p.nome,
+    p.sobrenome,
+    p.email,
+    p.telefone,
+    p.departamento,
+    p.cargo,
+    p.data_admissao,
+    CONCAT(p.nome, ' ', COALESCE(p.sobrenome, '')) as nome_completo
+FROM usuarios u
+LEFT JOIN perfis p ON u.id = p.usuario_id;
+
+CREATE OR REPLACE VIEW vw_historico_completo AS
+SELECT 
+    h.id,
+    h.sala_id,
+    h.usuario_id,
+    h.tipo_chave,
+    h.nome_pessoa,
+    h.data_retirada,
+    h.data_devolucao,
+    h.devolvido,
+    h.observacoes,
+    h.criado_em,
+    h.atualizado_em,
+    s.numero as sala_numero,
+    s.nome as sala_nome,
+    u.username,
+    CONCAT(p.nome, ' ', COALESCE(p.sobrenome, '')) as usuario_nome_completo
+FROM historico_chaves h
+JOIN salas s ON h.sala_id = s.id
+LEFT JOIN usuarios u ON h.usuario_id = u.id
+LEFT JOIN perfis p ON u.id = p.usuario_id;
+
+-- Show database setup completion
+SELECT 'Database setup completed successfully!' as message;
