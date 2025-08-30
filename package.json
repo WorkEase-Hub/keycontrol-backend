@@ -2,26 +2,53 @@
   "name": "keycontrol-backend",
   "version": "0.0.1",
   "description": "Backend API para sistema KeyControl de gerenciamento de chaves",
-  "main": "index.js",
+  "type": "module",
+  "main": "src/server.js",
   "author": "Adimael Santos da Silva <adimael@exemplo.com>",
   "license": "MIT",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/WorkEase-Hub/keycontrol-backend.git"
+    "url": "https://github.com/adimael/keycontrol-backend.git"
   },
-  "keywords": [],
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/WorkEase-Hub/keycontrol-backend/issues"
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "migrate": "node src/database/migrate.js",
+    "seed": "node src/database/seed.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.js",
+    "lint:fix": "eslint src/**/*.js --fix",
+    "build": "echo 'Build não necessário para Node.js'",
+    "db:reset": "npm run migrate && npm run seed",
+    "logs": "tail -f logs/keycontrol.log"
   },
-  "homepage": "https://github.com/WorkEase-Hub/keycontrol-backend#readme",
-  "devDependencies": {
-    "eslint": "^9.34.0",
-    "jest": "^30.1.1",
-    "nodemon": "^3.1.10",
-    "supertest": "^7.1.4"
+  "keywords": [
+    "nodejs",
+    "express",
+    "mysql",
+    "jwt",
+    "api",
+    "keycontrol",
+    "gerenciamento",
+    "chaves"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^8.1.0",
+    "joi": "^18.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.14.3",
+    "uuid": "^11.1.0"
   }
 }
